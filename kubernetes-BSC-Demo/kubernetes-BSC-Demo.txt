@@ -1,0 +1,56 @@
+BSC TERASORT HDFS DEMO
+
+#FIRST MAKE SURE TO CLEAN THE NAMESPACE
+
+kubectl delete ns bscdemo
+
+#CREATE CLUSTER & SHOW RESOURCES
+
+kubectl create ns bscdemo
+
+kubectl get all -n bscdemo -o wide #should show empty ns
+
+kubectl apply -f BSC-HDFS.yaml -n bscdemo
+
+kubectl get all -n bscdemo -o wide #should show all components up&running
+
+kubectl get pvc -n bscdemo # show the volume claims we have made (persistent storage)
+
+#RUN HDFS TERASORT TEST
+
+kubectl exec -it pod/hdfs-deployment-0 -n bscdemo -- /bin/bash
+
+hdfs dfs -mkdir /becnhmarks
+
+hdfs dfs -ls /
+
+hadoop jar ./share/hadoop/mapreduce/hadoop-mapreduce-examples-3.2.1.jar teragen  100000000 /benchmarks/TeraSortData
+
+(in another terminal in parallel)
+
+kubectl port-forward pod/hdfs-deployment-0 8088:8088 -n bscdemo
+
+Paste thius URL in browser:
+
+http://0.0.0.0:8088/cluster
+
+
+#IF YOU WANT TO ALSO SORT
+
+
+hadoop jar ./share/hadoop/mapreduce/hadoop-mapreduce-examples-3.2.1.jar terasort /benchmarks/TeraSortData /benchmarks/terasort-10G-sorted
+
+
+
+
+
+
+#ADDITIONALLY, NUMBER OF RECPLICAS CAN BE SCALED WITH (RECOMMEND TO DELETE HDFS FILES BEFORE)
+
+kubectl scale statefulsets hdfs-datanode  --replicas=4 -n bscdemo
+
+
+inside the node, correct yarn configuration can be checked with the command:
+kubectl exec -it pod/hdfs-deployment-0 -n bscdemo -- /bin/bash
+
+yarn node --list

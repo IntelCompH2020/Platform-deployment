@@ -1,0 +1,212 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hdfs-deployment
+spec:
+  selector:
+    matchLabels:
+      app: hdfs-namenode
+  serviceName: hdfs-namenode
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: hdfs-namenode
+    spec:
+      nodeSelector:
+        type: hdfs
+      containers:
+      - name: namenode
+        image: ohernand/bsc-support:9.3
+        command: [ "/entrypoint.sh"]
+        args:
+        - namenode
+        env:
+        - name: HDFS_CONF_dfs_datanode_use_datanode_hostname
+          value: "false"
+        - name: HDFS_CONF_dfs_client_use_datanode_hostname
+          value: "false"
+        - name: HDFS_CONF_dfs_namenode_datanode_registration_ip___hostname___check
+          value: "false"
+        - name: YARN_CONF_yarn_nodemanager_aux___services
+          value: "mapreduce_shuffle"
+        - name: YARN_CONF_yarn_nodemanager_aux___services_mapreduce__shuffle_class
+          value: "org.apache.hadoop.mapred.ShuffleHandler"
+        - name: YARN_CONF_yarn_resourcemanager_webapp_address
+          value: "0.0.0.0:8088"
+        - name: YARN_CONF_yarn_nodemanager_resource_memory___mb
+          value: "26624"
+        - name: YARN_CONF_yarn_scheduler_minimum___allocation___mb
+          value: "5324"
+        - name: YARN_CONF_yarn_scheduler_maximum___allocation___mb
+          value: "26624"
+        - name: YARN_CONF_yarn_app_mapreduce_am_resource_mb
+          value: "4096"
+          #        - name: YARN_CONF_yarn_app_mapreduce_am_command___opts
+          #value: "2048"
+
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        resources:
+          requests:
+            memory: "28000Mi"
+            cpu: "15300m"
+          limits:
+            memory: "28000Mi"
+            cpu: "15300m"
+        ports:
+        - containerPort: 8020
+        volumeMounts:
+        - name: hdfs-namenode
+          mountPath: /dfs
+  volumeClaimTemplates:
+  - metadata:
+      name: hdfs-namenode
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "local-path"
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-deployment
+spec:
+  ports:
+  - port: 8020
+    protocol: TCP
+  selector:
+    app: hdfs-namenode
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yarn-deployment
+spec:
+  ports:
+  - port: 8030
+    name: test
+    protocol: TCP
+  - port: 8031
+    name: test1
+    protocol: TCP
+  - port: 8032
+    name: test2
+    protocol: TCP
+  - port: 8033
+    name: test3
+    protocol: TCP
+  - port: 8088
+    name: test4
+    protocol: TCP
+  selector:
+    app: hdfs-namenode
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-datanode
+  labels:
+    app: hdfs-datanode
+spec:
+  clusterIP: None
+  selector:
+    app: hdfs-datanode
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-namenode
+  labels:
+    app: hdfs-namenode
+spec:
+  clusterIP: None
+  selector:
+    app: hdfs-namenode
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hdfs-datanode
+spec:
+  selector:
+    matchLabels:
+      app: hdfs-datanode
+  serviceName: hdfs-datanode
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: hdfs-datanode
+    spec:
+      nodeSelector:
+        type: hdfs
+      containers:
+      - name: datanode
+        image: ohernand/bsc-support:9.3
+        command: [ "/entrypoint.sh"]
+        args:
+        - datanode
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: CORE_CONF_fs_defaultFS
+          value: "hdfs://hdfs-deployment:8020"
+        - name: YARN_CONF_yarn_resourcemanager_hostname
+          value: "yarn-deployment"
+        - name: YARN_CONF_yarn_resourcemanager_resource___tracker_address
+          value: "yarn-deployment"
+        - name: YARN_CONF_yarn_resourcemanager_address
+          value: "yarn-deployment"
+        - name: YARN_CONF_yarn_scheduler_address
+          value: "yarn-deployment"
+        - name: HDFS_CONF_dfs_namenode_datanode_registration_ip___hostname___check
+          value: "false"
+        - name: YARN_CONF_yarn_nodemanager_aux___services
+          value: "mapreduce_shuffle"
+        - name: YARN_CONF_yarn_nodemanager_aux___services_mapreduce__shuffle_class
+          value: "org.apache.hadoop.mapred.ShuffleHandler"
+        - name: HDFS_CONF_dfs_datanode_hostname
+          value: "$POD_IP"
+        - name: YARN_CONF_yarn_nodemanager_resource_memory___mb
+          value: "26624"
+        - name: YARN_CONF_yarn_scheduler_minimum___allocation___mb
+          value: "5324"
+        - name: YARN_CONF_yarn_scheduler_maximum___allocation___mb
+          value: "26624"
+        - name: YARN_CONF_yarn_app_mapreduce_am_resource_mb
+          value: "4096"
+          #- name: YARN_CONF_yarn_app_mapreduce_am_command___opts
+          #value: "2048"
+        resources:
+          requests:
+            memory: "28000Mi"
+            cpu: "15300m"
+          limits:
+            memory: "28000Mi"
+            cpu: "15300m"
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: hdfs-data
+          mountPath: /dfs
+  volumeClaimTemplates:
+  - metadata:
+      name: hdfs-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "local-path"
+      resources:
+        requests:
+          storage: 100Gi

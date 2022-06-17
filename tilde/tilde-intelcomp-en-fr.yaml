@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: tilde-intelcomp-en-fr
+  name: tilde-intelcomp-en-fr
+spec:
+  selector:
+    matchLabels:
+      run: tilde-intelcomp-en-fr
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        run: tilde-intelcomp-en-fr
+    spec:
+      containers:
+      - image: registry.gitlab.bsc.es/support/intelcomp/tilde-intelcomp-en-fr
+        name: tilde-intelcomp-en-fr
+        resources:
+          requests:
+            memory: "8000Mi"
+            cpu: "5"
+          limits:
+            memory: "8000Mi"
+            cpu: "5"
+        ports:
+        - containerPort: 10000
+        - containerPort: 5000
+      imagePullSecrets:
+      - name: regcred
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tilde-intelcomp-en-fr
+  labels:
+    run: tilde-intelcomp-en-fr
+spec:
+  ports:
+  - protocol: TCP
+    port: 5000
+  selector:
+    run: tilde-intelcomp-en-fr
